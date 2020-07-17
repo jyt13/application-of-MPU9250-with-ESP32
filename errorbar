@@ -1,0 +1,209 @@
+import socket
+import json
+import matplotlib.pyplot as plt
+from collections import OrderedDict
+from openpyxl import Workbook
+N=input("Enter the name of excel that will be created: ")
+s = socket.socket()
+s.bind(('192.168.0.145', 8090 ))
+s.listen(8090)
+r=''
+n=2
+m=2
+t_lista=[]
+t_listg=[]
+t_listm=[]
+accx_list=[]
+saaccx_list=[]
+accy_list=[]
+saaccy_list=[]
+accz_list=[]
+saaccz_list=[]
+gyrx_list=[]
+sagyrx_list=[]
+gyry_list=[]
+sagyry_list=[]
+gyrz_list=[]
+sagyrz_list=[]
+magx_list=[]
+samagx_list=[]
+magy_list=[]
+samagy_list=[]
+magz_list=[]
+samagz_list=[]
+
+f = Workbook()
+sheet1 = f.create_sheet(0)
+sheet2 = f.create_sheet(1)
+sheet3 = f.create_sheet(2)
+sheet1.title="MPU9250"
+sheet2.title="Average"
+sheet3.title="StandardAbweichung"
+row0 = ["Time","accX","accY","accZ","gyroX","gyroY","gyroZ","magX","magY",\
+        "magZ",]
+row1 = ["Time","averaccX","averaccY","averaccZ","avergyroX","avergyroY",\
+        "avergyroZ","avermagX","avermagY","avermagZ",]
+row2 = ["Time","saaccX","saaccY","saaccZ","sagyroX","sagyroY","sagyroZ",\
+        "samagX","samagY","samagZ",]
+
+for i in range(0,10):
+	     sheet1.cell(row=1,column=i+1).value=row0[i]
+	     sheet2.cell(row=1,column=i+1).value=row1[i]
+	     sheet3.cell(row=1,column=i+1).value=row2[i]
+def write_every():	
+    sheet1.cell(row=n,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet1.cell(row=n,column=2).value=str(dict1['acceleration']['accX'])
+    sheet1.cell(row=n,column=3).value=str(dict1['acceleration']['accY'])
+    sheet1.cell(row=n,column=4).value=str(dict1['acceleration']['accZ'])
+    sheet1.cell(row=n,column=5).value=str(dict1['gyroMeter']['gyroX'])
+    sheet1.cell(row=n,column=6).value=str(dict1['gyroMeter']['gyroY'])
+    sheet1.cell(row=n,column=7).value=str(dict1['gyroMeter']['gyroZ'])
+    sheet1.cell(row=n,column=8).value=str(dict1['Mag']['magX'])
+    sheet1.cell(row=n,column=9).value=str(dict1['Mag']['magY'])
+    sheet1.cell(row=n,column=10).value=str(dict1['Mag']['magZ'])
+
+def write_aver():
+    
+    sheet2.cell(row=m,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet2.cell(row=m,column=2).value=str(dict1['Average']['averaccX'])
+    sheet2.cell(row=m,column=3).value=str(dict1['Average']['averaccY'])
+    sheet2.cell(row=m,column=4).value=str(dict1['Average']['averaccZ'])
+    sheet2.cell(row=m,column=5).value=str(dict1['Average']['avergyroX'])
+    sheet2.cell(row=m,column=6).value=str(dict1['Average']['avergyroY'])
+    sheet2.cell(row=m,column=7).value=str(dict1['Average']['avergyroZ'])
+    sheet2.cell(row=m,column=8).value=str(dict1['Average']['avermagX'])
+    sheet2.cell(row=m,column=9).value=str(dict1['Average']['avermagY'])
+    sheet2.cell(row=m,column=10).value=str(dict1['Average']['avermagZ'])
+    
+	
+def write_sa():
+    global m
+    
+    sheet3.cell(row=m,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet3.cell(row=m,column=2).value=str(dict1['sa']['saaccX'])
+    sheet3.cell(row=m,column=3).value=str(dict1['sa']['saaccY'])
+    sheet3.cell(row=m,column=4).value=str(dict1['sa']['saaccZ'])
+    sheet3.cell(row=m,column=5).value=str(dict1['sa']['sagyroX'])
+    sheet3.cell(row=m,column=6).value=str(dict1['sa']['sagyroY'])
+    sheet3.cell(row=m,column=7).value=str(dict1['sa']['sagyroZ'])
+    sheet3.cell(row=m,column=8).value=str(dict1['sa']['samagX'])
+    sheet3.cell(row=m,column=9).value=str(dict1['sa']['samagY'])
+    sheet3.cell(row=m,column=10).value=str(dict1['sa']['samagZ'])
+    m+=1
+
+plt.figure(figsize=(16,8))
+
+
+
+try:
+  while True:
+       client, addr = s.accept()
+       while True:
+           plt.ion()
+           content = client.recv(1024)
+           response=content.decode()
+           str1=r+response
+           if str1:
+              dict1=json.loads(str1)
+              
+           if len(content)==0:
+              break
+         
+           else:
+              write_every()
+              if (dict1['sa']['saaccX']!='0.00')&(dict1['Average']['averaccX']!='0.00'):
+                     write_aver()
+                     write_sa()
+              if dict1['Average']['averaccX']!="0.00":
+                     t_lista.append(dict1["Time"]["Timestamp"])
+                     t_listg.append(dict1["Time"]["Timestamp"])
+                     t_listm.append(dict1["Time"]["Timestamp"])
+                     accx_list.append(float(dict1['Average']['averaccX']))
+                     saaccx_list.append(float(dict1['sa']['saaccX']))
+                     accy_list.append(float(dict1['Average']['averaccY']))
+                     saaccy_list.append(float(dict1['sa']['saaccY']))
+                     accz_list.append(float(dict1['Average']['averaccZ']))
+                     saaccz_list.append(float(dict1['sa']['saaccZ']))
+                     gyrx_list.append(float(dict1['Average']['avergyroX']))
+                     sagyrx_list.append(float(dict1['sa']['sagyroX']))
+                     gyry_list.append(float(dict1['Average']['avergyroY']))
+                     sagyry_list.append(float(dict1['sa']['sagyroY']))
+                     gyrz_list.append(float(dict1['Average']['avergyroZ']))
+                     sagyrz_list.append(float(dict1['sa']['saaccX']))
+                     magx_list.append(float(dict1['Average']['avermagX']))
+                     samagx_list.append(float(dict1['sa']['samagX']))
+                     magy_list.append(float(dict1['Average']['avermagY']))
+                     samagy_list.append(float(dict1['sa']['samagY']))
+                     magz_list.append(float(dict1['Average']['avermagZ']))
+                     samagz_list.append(float(dict1['sa']['samagZ']))
+              
+              if len(t_lista)==5:
+                     plt.clf()
+                     del t_lista[0]
+                     del t_listg[0]
+                     del t_listm[0]
+                     del accx_list[0]
+                     del saaccx_list[0]
+                     del accy_list[0]
+                     del saaccy_list[0]
+                     del accz_list[0]
+                     del saaccz_list[0]
+                     del gyrx_list[0]
+                     del sagyrx_list[0]
+                     del gyry_list[0]
+                     del sagyry_list[0]
+                     del gyrz_list[0]
+                     del sagyrz_list[0]
+                     del magx_list[0]
+                     del samagx_list[0]
+                     del magy_list[0]
+                     del samagy_list[0]
+                     del magz_list[0]
+                     del samagz_list[0]
+
+                     
+              ax1=plt.subplot(1,3,1)       
+              ax1.errorbar(t_lista,accx_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='b',elinewidth=2,capsize=4,label='accx')
+              ax1.errorbar(t_lista,accy_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='c',elinewidth=2,capsize=4,label='accy')
+              ax1.errorbar(t_lista,accz_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='peru',elinewidth=2,capsize=4,label='accz')
+              handles, labels = plt.gca().get_legend_handles_labels()
+              by_label = OrderedDict(zip(labels, handles))
+              ax1.legend(by_label.values(), by_label.keys())
+              plt.gcf().autofmt_xdate()
+              
+              ax2=plt.subplot(1,3,2) 
+              ax2.errorbar(t_listg,gyrx_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='green',elinewidth=2,capsize=4,label='gyrx')
+              ax2.errorbar(t_listg,gyry_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='darkorchid',elinewidth=2,capsize=4,label='gyry')
+              ax2.errorbar(t_listg,gyrz_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='orange',elinewidth=2,capsize=4,label='gyrz')
+              handles, labels = plt.gca().get_legend_handles_labels()
+              by_label = OrderedDict(zip(labels, handles))
+              ax2.legend(by_label.values(), by_label.keys())
+              plt.gcf().autofmt_xdate()
+              
+              ax3=plt.subplot(1,3,3) 
+              ax3.errorbar(t_listm,magx_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='gold',elinewidth=2,capsize=4,label='magx')              
+              ax3.errorbar(t_listm,magy_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='steelblue',elinewidth=2,capsize=4,label='magy')
+              ax3.errorbar(t_listm,magz_list,yerr=saaccx_list,fmt='o-',ecolor='r',\
+                           color='magenta',elinewidth=2,capsize=4,label='magz')
+              handles, labels = plt.gca().get_legend_handles_labels()
+              by_label = OrderedDict(zip(labels, handles))
+              ax3.legend(by_label.values(), by_label.keys())
+              plt.gcf().autofmt_xdate()
+              
+              plt.pause(0.001)
+              n+=1
+              plt.ioff()
+              dict1.clear()
+                     
+except KeyboardInterrupt:
+              print("end receiving")
+              plt.close() 
+              f.save(N+'.xlsx')
