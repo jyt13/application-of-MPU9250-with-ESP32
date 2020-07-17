@@ -1,0 +1,255 @@
+/*
+ * GND-GND
+ * G22-SCL
+ * G21-SDA
+ * G19-INT
+ * 3.3V-VCC
+ */
+#include <ArduinoJson.h>
+#include"time.h"
+#include <Arduino.h>
+#include <String.h>
+#include <SparkFunMPU9250-DMP.h>
+#include<WiFi.h>
+MPU9250_DMP imu;//I2C mode
+WiFiClient client;
+const char* ssid     = "**********";//your wifi ssid
+const char* password = "*********";//your wifi passwort
+const int port = *******;
+const char* host = "*****";//host address mostly ipv4
+const char*ntpServer="europe.pool.ntp.org";
+const long gmtOffset_sec=3600;
+const int daylightOffset_sec=3600;
+int n=0;
+char cTime[50]={0};
+float Daten[9]={0};
+float Aver[9]={0};
+float aver[9]={0};
+float SA[9]={0};
+float daten[5][9]={0};
+void setup()
+{
+  Serial.begin(115200);
+  wifi_init();
+  //setting for time
+  configTime(gmtOffset_sec,daylightOffset_sec,ntpServer);
+  setenv("TZ=GMT", "GMT+1", 1);
+
+  // Call imu.begin() to verify communication with and
+  // initialize the MPU-9250 to it's default values.
+  // Most functions return an error code - INV_SUCCESS (0)
+  // indicates the IMU was present and successfully set up
+  if (imu.begin() != INV_SUCCESS)
+  {
+    while (1)
+    {
+      Serial.println("Unable to communicate with MPU-9250");
+      Serial.println("Check connections, and try again.");
+      Serial.println();
+      delay(5000);
+    }
+  }
+  
+ 
+  // Use setSensors to turn on or off MPU-9250 sensors.
+  // Any of the following defines can be combined:
+  // INV_XYZ_GYRO, INV_XYZ_ACCEL, INV_XYZ_COMPASS,
+  // INV_X_GYRO, INV_Y_GYRO, or INV_Z_GYRO
+  // Enable all sensors:
+  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
+ 
+  // Use setGyroFSR() and setAccelFSR() to configure the
+  // gyroscope and accelerometer full scale ranges.
+  // Gyro options are +/- 250, 500, 1000, or 2000 dps
+  imu.setGyroFSR(2000); // Set gyro to 2000 dps
+  // Accel options are +/- 2, 4, 8, or 16 g
+  imu.setAccelFSR(2); // Set accel to +/-2g
+  // Note: the MPU-9250's magnetometer FSR is set at
+  // +/- 4912 uT (micro-tesla's)
+ 
+  // setLPF() can be used to set the digital low-pass filter
+  // of the accelerometer and gyroscope.
+  // Can be any of the following: 188, 98, 42, 20, 10, 5
+  // (values are in Hz).
+  imu.setLPF(5); // Set LPF corner frequency to 5Hz
+ 
+  // The sample rate of the accel/gyro can be set using
+  // setSampleRate. Acceptable values range from 4Hz to 1kHz
+  imu.setSampleRate(5); // Set sample rate to 5Hz
+ 
+  // Likewise, the compass (magnetometer) sample rate can be
+  // set using the setCompassSampleRate() function.
+  // This value can range between: 1-100Hz
+  imu.setCompassSampleRate(5); // Set mag rate to 5Hz
+}
+ 
+void loop()
+{
+if  (!client.connect(host, port)) {
+
+        Serial.println("Connection to host failed");
+        return;
+    } 
+  // dataReady() checks to see if new accel/gyro data
+  // is available. It will return a boolean true or false
+  // (New magnetometer data cannot be checked, as the library
+  //  runs that sensor in single-conversion mode.)
+ 
+  if ( imu.dataReady() )
+        {
+    // Call update() to update the imu objects sensor data.
+    // You can specify which sensors to update by combining
+    // UPDATE_ACCEL, UPDATE_GYRO, UPDATE_COMPASS, and/or
+    // UPDATE_TEMPERATURE.
+    // (The update function defaults to accel, gyro, compass,
+    //  so you don't have to specify these values.)
+           
+           
+           printIMUData();
+           delay(120);
+     
+        }
+}
+
+void printIMUData(void)
+{ 
+  
+  getDaten();
+  getLocalTime();
+  average();
+  createJson();
+}
+
+void wifi_init(){
+   
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+       Serial.println("Connecting to WiFi");
+    }
+ 
+    Serial.println("");
+    Serial.println("WiFi connected.");
+    //Serial.println(WiFi.localIP());
+     
+  }
+  
+ void getLocalTime()
+{
+  
+  time_t tt;
+  struct tm *timeinfo;
+  tt=time(NULL);
+  timeinfo=localtime(&tt);
+  strftime(cTime,50,"%Y-%m-%d %H:%M:%S",timeinfo);
+ 
+}
+
+void createJson()
+{
+  StaticJsonDocument<1000> doc;
+  doc["Sensor"] = "MPU-9250";
+  JsonObject acceleration=doc.createNestedObject("acceleration");
+  acceleration["accX"] =(String)Daten[0];
+  acceleration["accY"] =(String) Daten[1];
+  acceleration["accZ"] = (String)Daten[2];
+
+  JsonObject gyroMeter=doc.createNestedObject("gyroMeter");
+  gyroMeter["gyroX"] =(String)Daten[3];
+  gyroMeter["gyroY"] = (String)Daten[4];
+  gyroMeter["gyroZ"] = (String)Daten[5];
+
+  JsonObject Mag=doc.createNestedObject("Mag");
+  Mag["magX"] =(String) Daten[6];
+  Mag["magY"] =(String) Daten[7];
+  Mag["magZ"] = (String)Daten[8];
+
+  JsonObject Time=doc.createNestedObject("Time");
+  Time["Timestamp"]=cTime; 
+
+  JsonObject Average=doc.createNestedObject("Average");
+  Average["averaccX"]=(String)Aver[0];
+  Average["averaccY"]=(String)Aver[1];
+  Average["averaccZ"]=(String)Aver[2];
+  Average["avergyroX"]=(String)Aver[3];
+  Average["avergyroY"]=(String)Aver[4];
+  Average["avergyroZ"]=(String)Aver[5];
+  Average["avermagX"]=(String)Aver[6];
+  Average["avermagY"]=(String)Aver[7];
+  Average["avermagZ"]=(String)Aver[8];
+
+  JsonObject sa=doc.createNestedObject("sa");
+  sa["saaccX"]=String(SA[0]);
+  sa["saaccY"]=String(SA[1]);
+  sa["saaccZ"]=String(SA[2]);
+  sa["sagyroX"]=String(SA[3]);
+  sa["sagyroY"]=String(SA[4]);
+  sa["sagyroZ"]=String(SA[5]);
+  sa["samagX"]=String(SA[6]);
+  sa["samagY"]=String(SA[7]);
+  sa["samagZ"]=String(SA[8]);
+
+  
+  char json[1000];
+  serializeJsonPretty(doc, json);
+  client.print(json);
+  if(n==0){
+  for(int i=0;i<9;i++){
+    Aver[i]=0;
+    SA[i]=0;
+  }
+  }
+}
+void getDaten()
+{
+ // After calling update() the ax, ay, az, gx, gy, gz, mx,
+  // my, mz, time, and/or temerature class variables are all
+  // updated. Access them by placing the object. in front:
+ 
+  // Use the calcAccel, calcGyro, and calcMag functions to
+  // convert the raw sensor readings (signed 16-bit values)
+  // to their respective units.
+  imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+  Daten[0] = imu.calcAccel(imu.ax)*9.8;
+  Daten[1] = imu.calcAccel(imu.ay)*9.8;
+  Daten[2] = imu.calcAccel(imu.az)*9.8;
+  Daten[3] = imu.calcGyro(imu.gx)+6.233;
+  Daten[4] = imu.calcGyro(imu.gy)+2.790;
+  Daten[5] = imu.calcGyro(imu.gz)+1.766;
+  Daten[6] = imu.calcMag(imu.mx);
+  Daten[7] = imu.calcMag(imu.my);
+  Daten[8] = imu.calcMag(imu.mz);
+}
+/*
+ * aver[] is used to save  addition results
+ * Aver[] is used to save the average results each 10 measurement
+ * daten[][] is used to save daten every 10 times
+ * SA[] is used to save standard deviation in daten[][]
+ */
+void average(){
+   for(int i=0;i<9;i++){
+    aver[i]+=Daten[i];
+    daten[n][i]=Daten[i];
+   }
+   n+=1;
+   if(n==5){
+      for(int i=0;i<9;i++){
+           Aver[i]=aver[i]/5;
+           aver[i]=0;
+      }   
+      getSA();
+      n=0;   
+   }
+}  
+
+void getSA(){
+  for(int i=0;i<5;i++){
+    for(int j=0;j<9;j++){
+      SA[j]+=(daten[i][j]-Aver[j])*(daten[i][j]-Aver[j]);
+    }
+  }
+  for(int i=0;i<9;i++){
+    SA[i]/=5;
+    SA[i]=sqrt(SA[i]);
+  }
+}
