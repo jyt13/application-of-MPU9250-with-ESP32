@@ -1,0 +1,137 @@
+import socket
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+from openpyxl import Workbook
+
+N=input("Enter the name of excel that will be created: ")
+s = socket.socket()
+s.bind(('192.168.0.145', 8090 ))
+s.listen(8090)
+r=''
+n=2
+m=2
+f = Workbook()#create an excel workbook
+#create 3 sheets
+sheet1 = f.create_sheet(0)
+sheet2 = f.create_sheet(1)
+sheet3 = f.create_sheet(2)
+sheet1.title="MPU9250"
+sheet2.title="Average"
+sheet3.title="StandardAbweichung"
+
+row0 = ["Time","accX","accY","accZ","gyroX","gyroY","gyroZ","magX","magY",\
+        "magZ",]
+row1 = ["Time","averaccX","averaccY","averaccZ","avergyroX","avergyroY",\
+        "avergyroZ","avermagX","avermagY","avermagZ",]
+row2 = ["Time","saaccX","saaccY","saaccZ","sagyroX","sagyroY","sagyroZ",\
+        "samagX","samagY","samagZ",]
+for i in range(0,10):
+	     sheet1.cell(row=1,column=i+1).value=row0[i]
+	     sheet2.cell(row=1,column=i+1).value=row1[i]
+	     sheet3.cell(row=1,column=i+1).value=row2[i]
+
+#write_every:everytime data
+#write_aver:every 8 times datas' average
+#write_sa: every 8 times datas' standard deviation
+def write_every():	
+    sheet1.cell(row=n,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet1.cell(row=n,column=2).value=str(dict1['acceleration']['accX'])
+    sheet1.cell(row=n,column=3).value=str(dict1['acceleration']['accY'])
+    sheet1.cell(row=n,column=4).value=str(dict1['acceleration']['accZ'])
+    sheet1.cell(row=n,column=5).value=str(dict1['gyroMeter']['gyroX'])
+    sheet1.cell(row=n,column=6).value=str(dict1['gyroMeter']['gyroY'])
+    sheet1.cell(row=n,column=7).value=str(dict1['gyroMeter']['gyroZ'])
+    sheet1.cell(row=n,column=8).value=str(dict1['Mag']['magX'])
+    sheet1.cell(row=n,column=9).value=str(dict1['Mag']['magY'])
+    sheet1.cell(row=n,column=10).value=str(dict1['Mag']['magZ'])
+
+def write_aver():
+    
+    sheet2.cell(row=m,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet2.cell(row=m,column=2).value=str(dict1['Average']['averaccX'])
+    sheet2.cell(row=m,column=3).value=str(dict1['Average']['averaccY'])
+    sheet2.cell(row=m,column=4).value=str(dict1['Average']['averaccZ'])
+    sheet2.cell(row=m,column=5).value=str(dict1['Average']['avergyroX'])
+    sheet2.cell(row=m,column=6).value=str(dict1['Average']['avergyroY'])
+    sheet2.cell(row=m,column=7).value=str(dict1['Average']['avergyroZ'])
+    sheet2.cell(row=m,column=8).value=str(dict1['Average']['avermagX'])
+    sheet2.cell(row=m,column=9).value=str(dict1['Average']['avermagY'])
+    sheet2.cell(row=m,column=10).value=str(dict1['Average']['avermagZ'])
+    
+	
+def write_sa():
+    global m
+    
+    sheet3.cell(row=m,column=1).value=str(dict1['Time']['Timestamp'])
+    sheet3.cell(row=m,column=2).value=str(dict1['sa']['saaccX'])
+    sheet3.cell(row=m,column=3).value=str(dict1['sa']['saaccY'])
+    sheet3.cell(row=m,column=4).value=str(dict1['sa']['saaccZ'])
+    sheet3.cell(row=m,column=5).value=str(dict1['sa']['sagyroX'])
+    sheet3.cell(row=m,column=6).value=str(dict1['sa']['sagyroY'])
+    sheet3.cell(row=m,column=7).value=str(dict1['sa']['sagyroZ'])
+    sheet3.cell(row=m,column=8).value=str(dict1['sa']['samagX'])
+    sheet3.cell(row=m,column=9).value=str(dict1['sa']['samagY'])
+    sheet3.cell(row=m,column=10).value=str(dict1['sa']['samagZ'])
+    m+=1
+   
+	
+	
+
+
+
+colors=dict(zip(
+    ['accelX(m/s^2)','accelY(m/s^2)','accelZ(m/s^2)','gyroX(dps)','gyroY(dps)','gyroZ(dps)','magX(uT)','magY(uT)','magZ(uT)'],
+    ['b','c','purple','steelblue','y','orange','skyblue','r','g']
+))
+fig,ax=plt.subplots(figsize=(10,6))
+try:
+  while True:
+      plt.ion()#start interaction
+      client, addr = s.accept()#start receiving from esp32
+      while True:
+           
+           
+            
+           content = client.recv(1024)#Bytes-like data
+           
+           response=content.decode()#json
+           str1=r+response#str
+           if str1:
+              dict1=json.loads(str1)#dict
+              
+      
+
+           if len(content)==0:
+              break
+         
+           else:
+              
+             
+             name=['accelX(m/s^2)','accelY(m/s^2)','accelZ(m/s^2)','gyroX(dps)','gyroY(dps)','gyroZ(dps)','magX(uT)','magY(uT)','magZ(uT)']
+             t=dict1['Time']['Timestamp']
+             value=[float(dict1["acceleration"]["accX"]),float(dict1["acceleration"]["accY"]),\
+                    float(dict1["acceleration"]["accZ"]),float(dict1["gyroMeter"]["gyroX"]),\
+                    float(dict1["gyroMeter"]["gyroY"]),float(dict1["gyroMeter"]["gyroZ"]),\
+                    float(dict1["Mag"]["magX"]),float(dict1["Mag"]["magY"]),\
+                    float(dict1["Mag"]["magZ"])]
+             #draw bar chart
+             ax.barh(name,value,color=[colors[name[x]]for x in range(9)])
+             #add timestamp
+             for i,(value,name) in enumerate(zip(value,name)):
+                  ax.text(value,i, value,ha='left')
+             ax.text(1,0.1,t,transform=ax.transAxes,size=16,ha='right')
+             plt.pause(0.01)
+             n+=1
+             ax.clear()
+             plt.ioff()
+             write_every()
+             if (dict1['sa']['saaccX']!='0.00')&(dict1['Average']['averaccX']!='0.00'):
+                 write_aver()
+                 write_sa()
+                 
+except KeyboardInterrupt:
+      print("end receiving")
+      plt.close()     
+      f.save(N+'.xlsx')   
+     
